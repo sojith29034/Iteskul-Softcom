@@ -27,7 +27,7 @@ def find_consecutive_absentees(df):
 # Streamlit app
 st.title("Student Attendance Report")
 
-uploaded_files = st.file_uploader("Upload Excel files", type="txt", accept_multiple_files=True)
+uploaded_files = st.file_uploader("Upload Excel files", type="xlsx", accept_multiple_files=True)
 
 if uploaded_files:
     class_reports = {}
@@ -41,7 +41,15 @@ if uploaded_files:
         # teacher = teacher.iloc[:, :1]
         # teacherName = teacher["ITESKUL Teacher's Note"].str.extract(r'Trainer\s*(\d+)', flags=re.IGNORECASE)
         # st.write(teacherName)
-        # st.dataframe(teacher)
+        # # st.dataframe(teacher)
+        # text = ""
+        # for index, row in teacher.iterrows():
+        #     for column_name, cell_value in row.items():
+        #         text += str(cell_value) + " "  # Convert cell value to string and add to text
+        #     text += "\n"  # Add newline after each row
+
+        # # Display the regular text
+        # print(text)
         
         
         # Read the "Attendance" sheet, skipping initial metadata rows
