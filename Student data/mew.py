@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from io import BytesIO
+
+
 
 st.set_page_config(page_title="Student Attendance Report", layout="wide")
 
@@ -14,6 +17,7 @@ st.markdown("""
         .stDeployButton {display:none;}
         footer {visibility: hidden;}
         stDecoration {display:none;}
+        .stTabs button {margin-right: 50px;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -33,7 +37,20 @@ def calculate_attendance(df):
     
     return df
 
-# Helper function to find students absent for 3 consecutive days
+# Helper function to find students who left
+def students_left(df):
+    left = []
+    for index, row in df.iterrows():
+        attendance = row[:-3]  # Get the last three attendance columns before the summary columns
+        attendance = attendance.str.upper()  # Convert to uppercase 
+        
+        # Check if any student has "Left"
+        if attendance.str.contains("LEFT").any():
+            left.append(row['Student Name'])
+    
+    return left
+
+
 def find_consecutive_absentees(df):
     absentees = []
     for index, row in df.iterrows():
@@ -50,7 +67,6 @@ def find_consecutive_absentees(df):
 def find_absentees(df):
     five_absentees = []
     ten_absentees = []
-    default = ["Not conducted enough classes."]
     
     for index, row in df.iterrows():
         attendance_series = row[3:]  # Get all attendance columns after the summary columns
@@ -59,21 +75,67 @@ def find_absentees(df):
         # Count total absences
         total_absences = attendance_series.tolist().count('A')
         
-        if row['Total Sessions'] >= 10:
-            if total_absences >= 5:
-                five_absentees.append(row['Student Name'])
-        elif row['Total Sessions'] >= 25:
+        if row['Total Sessions'] >= 25:
             if total_absences >= 10:
                 ten_absentees.append(row['Student Name'])
+                five_absentees.append(row['Student Name'])
+        if row['Total Sessions'] >= 10:
+            if total_absences >= 5:
+                if row['Student Name'] not in five_absentees:
+                    five_absentees.append(row['Student Name']) 
     
     # Return absentees or default statement
-    if five_absentees:
-        return five_absentees, default
-    elif ten_absentees:
+    if ten_absentees:
         return five_absentees, ten_absentees
+    elif five_absentees:
+        return five_absentees, []
     else:
-        return default, default
+        return [], []
+    
+# Helper function to pad lists to the same length
+def pad_lists(lists):
+    max_len = max(len(lst) for lst in lists)
+    return [lst + [""] * (max_len - len(lst)) for lst in lists]
+
+# Function to generate Excel file
+def generate_excel(reports):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        for class_name, report in reports.items():
+            # Add class attendance data to a sheet
+            df = report["Attendance Data"]
+            df.to_excel(writer, sheet_name=f"{class_name[:20]} Data", index=False)
+            
+            # Add class summary to a separate sheet
+            summary_data = {
+                "Attendance < 75%": report["Low Attendance"],
+                "3 Consecutive Absents": report["Consecutive Absentees"],
+                "5 Absents (at least 10 sessions)": report["Five Absent"],
+                "10 Absents (at least 25 sessions)": report["Ten Absent"],
+                "Discontinued": report["Discontinued"]
+            }
+            
+            # Ensure the lists are padded to the same length
+            padded_data = pad_lists(list(summary_data.values()))
+            
+            # Create a DataFrame for the summary data
+            summary_df = pd.DataFrame(
+                padded_data, 
+                index=summary_data.keys()
+            ).transpose()
+            
+            summary_df.to_excel(writer, sheet_name=f"{class_name[:20]} Summary", index=False)
+    
+    output.seek(0)
+    return output
+
+
+
+#############################################################################################################################################
+#############################################################################################################################################
+#############################################################################################################################################
         
+
 
 # Streamlit app
 st.title("Student Attendance Report")
@@ -98,20 +160,26 @@ if uploaded_files:
         
         # Drop rows where 'Student Name' is empty or NaN
         df = df.dropna(subset=['Student Name'])
+        # Drop rows where student has left
+        studentsLeft = students_left(df)
+        df = df[~df['Student Name'].isin(studentsLeft)]
+        for i in range(0, len(studentsLeft)):
+            studentsLeft[i] = studentsLeft[i].split('(')[0]
 
         # Drop empty columns
         df = df.dropna(axis=1, how='all')
         
+        # Reset the index
+        df.reset_index(drop=True, inplace=True)
         # Start index of dataframe from 1
         df.index = df.index + 1
-
         
         # Change column names to DD/MM/YYYY format if they are timestamps
-        # for i in range(3, len(df.columns)):
-        #     df.columns.values[i] = datetime.strptime(str(df.columns.values[i]), "%Y-%m-%d %H:%M:%S").strftime("%d-%m-%Y")
+        for i in range(3, len(df.columns)):
+            df.columns.values[i] = datetime.strptime(str(df.columns.values[i]), "%Y-%m-%d %H:%M:%S").strftime("%d-%m-%Y")
             
         # Get Last Date of attendance being updated
-        # last_date = df.columns[-1]
+        last_date = df.columns[-1]
 
         # Keep only columns containing "P" and "A"
         df = df.loc[:, ['Student Name'] + [col for col in df.columns[1:] if df[col].isin(['P', 'A', 'p', 'a']).any()]]
@@ -127,24 +195,22 @@ if uploaded_files:
         # Find students with attendance below 75%
         low_attendance = df[df['Attendance %'] < 75]['Student Name'].tolist()
 
-
-
-        df_styled = df.style.apply(lambda x: ['background: #FFA07A' if x['Attendance %'] < 75 else '' for _ in x], axis=1)
         
         # Store the results in a dictionary
         class_reports[class_name] = {
-            # "Last date": last_date,
-            "Attendance Data": df_styled,
+            "Last date": last_date,
+            "Attendance Data": df,
             "Low Attendance": low_attendance,
             "Five Absent": fiveAbsent,
             "Ten Absent": tenAbsent,
-            "Consecutive Absentees": consecutive_absentees
+            "Consecutive Absentees": consecutive_absentees,
+            "Discontinued": studentsLeft
         }
         
     # Group classes by language
     language_classes = {}
     for class_name, report in class_reports.items():
-        lang = class_name.split(' ')[0]  # Assuming the first part of the class name is the language
+        lang = class_name.split(' ')[0]  # get the first part of the class name as the language
         if lang not in language_classes:
             language_classes[lang] = {}
         language_classes[lang][class_name] = report
@@ -161,100 +227,41 @@ if uploaded_files:
         with tab:
             st.subheader(f"{lang} Classes")
             for class_name, report in language_classes[lang].items():
-    
-            # for class_name, report in class_reports.items():
                 st.subheader(f"Class: {class_name}")
-                # st.write(f"Last updated on: {report['Last date']}")
+                st.write(f"Last updated on: {report['Last date']}")
                 st.write("Attendance Data")
                 st.dataframe(report["Attendance Data"])
                 
-                report_tabs = {
+                sub_tab_titles = ["Attendance < 75%", "3 Consecutive Absents", "5 Absents (atleast 10 sessions)", "10 Absents (atleast 25 sessions)","Discontinued"]
+                sub_tabs = st.tabs(sub_tab_titles)
+                
+                sub_tab_content = {
                     "Attendance < 75%": report["Low Attendance"],
                     "3 Consecutive Absents": report["Consecutive Absentees"],
-                    "5 Absents (atleast 10 classes)": report["Five Absent"],
-                    "10 Absents (atleast 25 classes)": report["Ten Absent"]
+                    "5 Absents (atleast 10 sessions)": report["Five Absent"],
+                    "10 Absents (atleast 25 sessions)": report["Ten Absent"],
+                    "Discontinued": report["Discontinued"]
                 }
 
-                for tab_title, details in report_tabs.items():
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.write(tab_title)
-                    if details:
-                        st.markdown("<ul>", unsafe_allow_html=True)
-                        for student in details:
-                            st.markdown(f"<li>{student}</li>", unsafe_allow_html=True)
-                        st.markdown("</ul>", unsafe_allow_html=True)
-                    else:
-                        st.write("No students have", tab_title.lower(), ".")
+                for sub_tab, sub_tab_title in zip(sub_tabs, sub_tab_titles):
+                    with sub_tab:
+                        st.write(sub_tab_title)
+                        details = sub_tab_content.get(sub_tab_title)
+                        if details:
+                            st.markdown("<ul>", unsafe_allow_html=True)
+                            for student in details:
+                                st.markdown(f"<li>{student}</li>", unsafe_allow_html=True)
+                            st.markdown("</ul>", unsafe_allow_html=True)
+                        else:
+                            st.write(f"No student has {sub_tab_title.lower()}.")
+
                 st.markdown("<br><br><hr>", unsafe_allow_html=True)
-            
-            
-    # Download link for all data
-    # if st.button('Download All Data as Excel'):
-    #     output = pd.ExcelWriter('student_attendance_report.xlsx')
-    #     for class_name, report in class_reports.items():
-    #         report["Attendance Data"].to_excel(output, sheet_name=f"{class_name}_Attendance", index=False)
-    #         class_data = pd.DataFrame({
-    #             "Attendance < 75%": [', '.join(report["Low Attendance"])],
-    #             "3 Consecutive Absentees": [', '.join(report["Consecutive Absentees"])]
-    #             # "3 Consecutive Absentees": [[student] for student in report["Consecutive Absentees"]]
-    #         })
-    #         class_data.to_excel(output, sheet_name=f"{class_name}_Summary", index=False)
-    #     output.close()
-    #     with open('student_attendance_report.xlsx', 'rb') as f:
-    #         file_contents = f.read()
-    #     st.download_button(label='Download', data=file_contents, file_name='student_attendance_report.xlsx', mime='application/octet-stream')
-
-
-
-
-    # Create a list to store DataFrames
-    # dataframes = []
-
-    # for class_name, report in class_reports.items():
-    #     # Extracting the DataFrame from the styler object
-    #     report_df = report["Attendance Data"].data
-
-    #     for _, row in report_df.iterrows():
-    #         dataframes.append(pd.DataFrame({
-    #             "Class Name": [class_name],
-    #             "Student Name": [row["Student Name"]],
-    #             "Attendance %": [row["Attendance %"]],
-    #             "Low Attendance": [row["Student Name"] in report["Low Attendance"]],
-    #             "Consecutive Absentees": [row["Student Name"] in report["Consecutive Absentees"]]
-    #         }))
-
-    # # Concatenate all DataFrames into one
-    # all_data = pd.concat(dataframes, ignore_index=True)
-
-    # # Display the combined DataFrame
-    # st.write("Combined Data:")
-    # st.dataframe(all_data)
-
-    # # Download the combined DataFrame as Excel
-    # if st.button('Download Combined Data as Excel'):
-    #     output = pd.ExcelWriter('combined_student_attendance_report.xlsx')
-    #     all_data.to_excel(output, index=False)
-    #     output.close()
-    #     with open('combined_student_attendance_report.xlsx', 'rb') as f:
-    #         file_contents = f.read()
-    #     st.download_button(label='Download', data=file_contents, file_name='combined_student_attendance_report.xlsx', mime='application/octet-stream')
-
-
-
-
-
-
-    # # Create ExcelWriter object
-    # output = pd.ExcelWriter('student_attendance_report.xlsx')
-
-    # for class_name, report in class_reports.items():
-    #     # Save each DataFrame to a separate sheet
-    #     report["Attendance Data"].to_excel(output, sheet_name=f"{class_name}_Attendance", index=False)
-
-    # # Save the Excel file
-    # output.close()
-
-    # # Download the Excel file
-    # with open('student_attendance_report.xlsx', 'rb') as f:
-    #     file_contents = f.read()
-    # st.download_button(label='Download', data=file_contents, file_name='student_attendance_report.xlsx', mime='application/octet-stream')
+          
+        
+    excel_data = generate_excel(class_reports)
+    st.download_button(
+        label="Download Attendance Report",
+        data=excel_data,
+        file_name="attendance_report.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
