@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from io import BytesIO
+from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
+from openpyxl.styles import Alignment
 
 
 
@@ -14,11 +17,12 @@ st.markdown("""
         h1#student-attendance-report {text-align: center;}
         header #MainMenu {visibility: hidden; display: none;}
         .stActionButton {visibility: hidden; display: none;}
-        # .stDeployButton {display:none;}
+        .stDeployButton {display:none;}
         footer {visibility: hidden;}
         stDecoration {display:none;}
         .stTabs button {margin-right: 50px;}
         .viewerBadge_container__r5tak {display: none;}
+        .styles_terminalButton__JBj5T {display: none;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -101,21 +105,25 @@ def highlight_rows(row, condition_list):
     return [''] * len(row)
 
 
-    
+  
+
 # Helper function to pad lists to the same length
 def pad_lists(lists):
     max_len = max(len(lst) for lst in lists)
     return [lst + [""] * (max_len - len(lst)) for lst in lists]
 
-# Function to generate Excel file
 def generate_excel(reports):
     output = BytesIO()
+    
+    # Create a Pandas Excel writer using openpyxl as the engine
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        trainer_report_data = []
+
         for class_name, report in reports.items():
             # Add class attendance data to a sheet
             df = report["Attendance Data"]
-            df.to_excel(writer, sheet_name=f"{class_name[:20]} Data", index=False)
-            
+            df.to_excel(writer, sheet_name=f"{class_name[:20]} Data", index=False, startrow=1)
+
             # Add class summary to a separate sheet
             summary_data = {
                 "Attendance < 75%": report["Low Attendance"],
@@ -124,19 +132,50 @@ def generate_excel(reports):
                 "10 Absents (at least 25 sessions)": report["Ten Absent"],
                 "Discontinued": report["Discontinued"]
             }
-            
+
             # Ensure the lists are padded to the same length
             padded_data = pad_lists(list(summary_data.values()))
-            
+
             # Create a DataFrame for the summary data
             summary_df = pd.DataFrame(
                 padded_data, 
                 index=summary_data.keys()
             ).transpose()
             
-            summary_df.to_excel(writer, sheet_name=f"{class_name[:20]} Summary", index=False)
+            summary_df.to_excel(writer, sheet_name=f"{class_name[:20]} Summary", index=False, startrow=1)
+
+            # Collect trainer report data
+            trainer_report_data.append({
+                "Class": class_name,
+                "Last Updated Date": report["Last date"]
+            })
+
+        # Add the Trainer's Report sheet
+        trainer_report_df = pd.DataFrame(trainer_report_data)
+        trainer_report_df.to_excel(writer, sheet_name="Trainer's Report", index=False)
+
+    # Get the workbook object from the writer
+    workbook = writer.book
     
+    for class_name in reports.keys():
+        for sheet_name_suffix in [" Data", " Summary"]:
+            sheet_name = f"{class_name[:20]}{sheet_name_suffix}"
+            if sheet_name in workbook.sheetnames:
+                sheet = workbook[sheet_name]
+                
+                # Insert the class name in the first row and merge cells
+                sheet.insert_rows(1)
+                sheet["A1"] = class_name
+                sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=sheet.max_column)
+                
+                # Align the text to the left
+                sheet["A1"].alignment = Alignment(horizontal="left")
+
+    # Save the modified workbook back to BytesIO
+    output = BytesIO()
+    workbook.save(output)
     output.seek(0)
+    
     return output
 
 
@@ -219,13 +258,13 @@ if uploaded_files:
         }
         
     
-    # excel_data = generate_excel(class_reports)
-    # st.download_button(
-    #     label="Download Attendance Report",
-    #     data=excel_data,
-    #     file_name="attendance_report.xlsx",
-    #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    # )
+    excel_data = generate_excel(class_reports)
+    st.download_button(
+        label="Download Attendance Report",
+        data=excel_data,
+        file_name="attendance_report.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
         
         
@@ -304,7 +343,7 @@ if uploaded_files:
             
     # excel_data = generate_excel(class_reports)
     # st.download_button(
-    #     label="Download Attendance Report",
+    #     label="Download Cummulative Attendance Report",
     #     data=excel_data,
     #     file_name="attendance_report.xlsx",
     #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
