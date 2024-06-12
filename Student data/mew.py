@@ -14,10 +14,11 @@ st.markdown("""
         h1#student-attendance-report {text-align: center;}
         header #MainMenu {visibility: hidden; display: none;}
         .stActionButton {visibility: hidden; display: none;}
-        .stDeployButton {display:none;}
+        # .stDeployButton {display:none;}
         footer {visibility: hidden;}
         stDecoration {display:none;}
         .stTabs button {margin-right: 50px;}
+        .viewerBadge_container__r5tak {display: none;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -27,14 +28,15 @@ st.markdown("""
 
 # Helper function to calculate attendance percentage
 def calculate_attendance(df):
+    # Calculate total sessions and present sessions
     df['Total Sessions'] = df.iloc[:, 1:].apply(lambda row: row.count(), axis=1)
-    df['Present Sessions'] = df.iloc[:, 1:].apply(lambda row: row.value_counts().get('P', 0), axis=1) + df.iloc[:, 1:].apply(lambda row: row.value_counts().get('p', 0), axis=1)
+    df['Present Sessions'] = df.iloc[:, 1:].apply(lambda row: row.value_counts().get('P', 0) + row.value_counts().get('p', 0), axis=1)
     df['Attendance %'] = (df['Present Sessions'] / df['Total Sessions']) * 100
-    
-    df.insert(1, 'Total Sessions', df.pop('Total Sessions'))
-    df.insert(2, 'Present Sessions', df.pop('Present Sessions'))
-    df.insert(3, 'Attendance %', df.pop('Attendance %'))
-    
+
+    # Reorder columns to have Student Name, Total Sessions, Present Sessions, and Attendance % at the start
+    columns_order = ['Student Name', 'Total Sessions', 'Present Sessions', 'Attendance %'] + [col for col in df.columns if col not in ['Student Name', 'Total Sessions', 'Present Sessions', 'Attendance %']]
+    df = df[columns_order]
+
     return df
 
 # Helper function to find students who left
@@ -91,6 +93,14 @@ def find_absentees(df):
         return five_absentees, []
     else:
         return [], []
+    
+# Highlight function
+def highlight_rows(row, condition_list):
+    if row['Student Name'] in condition_list:
+        return ['background-color: yellow'] * len(row)
+    return [''] * len(row)
+
+
     
 # Helper function to pad lists to the same length
 def pad_lists(lists):
@@ -196,6 +206,7 @@ if uploaded_files:
         low_attendance = df[df['Attendance %'] < 75]['Student Name'].tolist()
 
         
+        
         # Store the results in a dictionary
         class_reports[class_name] = {
             "Last date": last_date,
@@ -206,6 +217,17 @@ if uploaded_files:
             "Consecutive Absentees": consecutive_absentees,
             "Discontinued": studentsLeft
         }
+        
+    
+    # excel_data = generate_excel(class_reports)
+    # st.download_button(
+    #     label="Download Attendance Report",
+    #     data=excel_data,
+    #     file_name="attendance_report.xlsx",
+    #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    # )
+
+        
         
     # Group classes by language
     language_classes = {}
@@ -226,15 +248,31 @@ if uploaded_files:
     for tab, lang in zip(tabs, language_classes.keys()):
         with tab:
             st.subheader(f"{lang} Classes")
-            for class_name, report in language_classes[lang].items():
+                
+            # Get the list of class names for the current language
+            class_names = list(language_classes[lang].keys())
+            
+            # Select the first class by default
+            default_class = class_names[0] if class_names else None
+            
+            # Create a dropdown menu to select classes for the current language
+            selected_classes = st.multiselect("Select Classes", class_names, default=default_class)
+            
+            # Iterate over selected classes and display their details
+            for class_name in selected_classes:
+                report = language_classes[lang][class_name]
+                
+                # Separate language tabs with a horizontal rule
+                st.markdown("<hr>", unsafe_allow_html=True)
+                
                 st.subheader(f"Class: {class_name}")
                 st.write(f"Last updated on: {report['Last date']}")
                 st.write("Attendance Data")
                 st.dataframe(report["Attendance Data"])
-                
+
                 sub_tab_titles = ["Attendance < 75%", "3 Consecutive Absents", "5 Absents (atleast 10 sessions)", "10 Absents (atleast 25 sessions)","Discontinued"]
                 sub_tabs = st.tabs(sub_tab_titles)
-                
+
                 sub_tab_content = {
                     "Attendance < 75%": report["Low Attendance"],
                     "3 Consecutive Absents": report["Consecutive Absentees"],
@@ -252,16 +290,22 @@ if uploaded_files:
                             for student in details:
                                 st.markdown(f"<li>{student}</li>", unsafe_allow_html=True)
                             st.markdown("</ul>", unsafe_allow_html=True)
+
+                            # Highlight rows in the dataframe based on the sub_tab condition
+                            df = report["Attendance Data"].style.apply(lambda row: highlight_rows(row, details), axis=1)
+                            # st.dataframe(df)  # Display highlighted dataframe first
                         else:
                             st.write(f"No student has {sub_tab_title.lower()}.")
 
-                st.markdown("<br><br><hr>", unsafe_allow_html=True)
-          
-        
-    excel_data = generate_excel(class_reports)
-    st.download_button(
-        label="Download Attendance Report",
-        data=excel_data,
-        file_name="attendance_report.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+            # Separate language tabs with a horizontal rule
+            st.markdown("<hr>", unsafe_allow_html=True)
+            
+            
+            
+    # excel_data = generate_excel(class_reports)
+    # st.download_button(
+    #     label="Download Attendance Report",
+    #     data=excel_data,
+    #     file_name="attendance_report.xlsx",
+    #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    # )
