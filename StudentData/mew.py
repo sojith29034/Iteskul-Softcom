@@ -112,6 +112,7 @@ def pad_lists(lists):
     max_len = max(len(lst) for lst in lists)
     return [lst + [""] * (max_len - len(lst)) for lst in lists]
 
+# Function to generate excel sheets
 def generate_excel(reports):
     output = BytesIO()
     
@@ -343,7 +344,7 @@ if uploaded_files:
             
     # excel_data = generate_excel(class_reports)
     # st.download_button(
-    #     label="Download Cummulative Attendance Report",
+    #     label="Download Cumulative Attendance Report",
     #     data=excel_data,
     #     file_name="attendance_report.xlsx",
     #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
