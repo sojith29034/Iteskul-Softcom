@@ -294,7 +294,7 @@ def run_main_app():
         st.download_button(
             label="Download Attendance Report",
             data=excel_data,
-            file_name="attendance_report.xlsx",
+            file_name=f"attendance_report_{datetime.now().strftime('%d-%m-%Y')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     
@@ -374,7 +374,7 @@ def run_main_app():
         st.download_button(
             label="Download Cumulative Attendance Report",
             data=excel_data,
-            file_name="attendance_report.xlsx",
+            file_name=f"attendance_report_{datetime.now().strftime('%d-%m-%Y')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
