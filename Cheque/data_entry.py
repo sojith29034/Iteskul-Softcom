@@ -1,4 +1,4 @@
-# pip install Pillow, openpyxl, os, traceback
+# pip install pillow openpyxl 
 
 from tkinter import Tk, Label, Entry, Button, Frame, filedialog, W, E
 from PIL import Image, ImageTk
