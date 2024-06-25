@@ -55,20 +55,23 @@ class ChequeApp:
         # Main frame
         self.main_frame = Frame(root)
         self.main_frame.pack(expand=True, fill='both')
-        
+
         self.filename_var = Label(self.main_frame, text="", font=('Arial', 14))
         self.filename_var.grid(row=0, column=0, sticky=W, pady=15, padx=30)
-        
+
         self.file_count_label = Label(self.main_frame, text="", font=('Arial', 14))
-        self.file_count_label.grid(row=0, column=0, sticky=E, padx=30)
+        self.file_count_label.grid(row=0, column=1, sticky=E, padx=30)
+
+        self.index_entry = Entry(self.main_frame, font=('Arial', 14), width=5)
+        self.index_entry.grid(row=0, column=1, sticky=W, padx=15)
+        self.index_entry.bind('<Return>', self.go_to_index)
 
         self.image_label = Label(self.main_frame)
-        self.image_label.grid(row=1, column=0, rowspan=6, padx=20, pady=20)
-
+        self.image_label.grid(row=1, column=0, columnspan=2, padx=20, pady=20)
 
         # Data Frame
         self.data_frame = Frame(self.main_frame, pady=20)
-        self.data_frame.grid(row=1, column=1, rowspan=4, sticky='nsew')
+        self.data_frame.grid(row=1, column=2, rowspan=4, sticky='nsew')
 
         # Labels and Entries
         self.cheque_number_label = Label(self.data_frame, text="Cheque Number:", font=('Arial', 14))
@@ -98,7 +101,7 @@ class ChequeApp:
         # Buttons with fixed width and aligned to left and right
         self.next_button = Button(self.data_frame, text="Next", command=self.show_next, font=('Arial', 14), width=10)
         self.next_button.grid(row=9, column=0, pady=15, sticky=E)
-        
+
         self.previous_button = Button(self.data_frame, text="Previous", command=self.show_previous, font=('Arial', 14), width=10)
         self.previous_button.grid(row=9, column=0, pady=15, sticky=W)
 
@@ -123,7 +126,7 @@ class ChequeApp:
 
         # Set cheque number entry on auto focus
         self.cheque_number_entry.focus_set()
-        
+
         # Bind Enter key to move focus to next widget
         self.cheque_number_entry.bind('<Return>', self.focus_next_widget)
         self.amount_entry.bind('<Return>', self.focus_next_widget)
@@ -132,13 +135,12 @@ class ChequeApp:
 
     def focus_next_widget(self, event):
         event.widget.tk_focusNext().focus()
-        
 
     def load_images(self):
         folder_path = filedialog.askdirectory(title="Select Folder with Images")
         if not folder_path:
             exit()
-            
+
         self.folder_name = os.path.basename(folder_path)
         self.excel_filename = f"{self.folder_name}.xlsx"
         image_files = [file for file in os.listdir(folder_path) if file.lower().endswith('f.tif')]
@@ -148,6 +150,15 @@ class ChequeApp:
             image_path = os.path.join(folder_path, file)
             image = Image.open(image_path)
             images.append((image, file))
+
+        # Load Excel data to skip already entered files
+        self.existing_files = self.load_excel_data()
+
+        # Find the first new image
+        for index, (_, filename) in enumerate(images):
+            if filename not in self.existing_files:
+                self.current_index = index
+                break
 
         return images
 
@@ -160,23 +171,37 @@ class ChequeApp:
         image, filename = self.images[self.current_index]
         self.filename_var.config(text=filename)
         self.file_count_label.config(text=f"{self.current_index + 1}/{len(self.images)}")
-
+        self.index_entry.delete(0, 'end')
+        self.index_entry.insert(0, str(self.current_index + 1))
 
         image, filename = self.images[self.current_index]
         self.filename_var.config(text=filename)
 
         # Check if filename is already in Excel
-        self.load_excel_data(filename, self.excel_filename)
+        self.load_image_data(filename)
 
         # Resize image to fit label
         image.thumbnail((1000, 600))  # Adjust size as needed
         self.image_tk = ImageTk.PhotoImage(image)
         self.image_label.config(image=self.image_tk)
 
-    def load_excel_data(self, filename, excel_filename):
+    def load_excel_data(self):
+        existing_files = set()
         try:
-            if os.path.exists(excel_filename):
-                wb = openpyxl.load_workbook(excel_filename)
+            if os.path.exists(self.excel_filename):
+                wb = openpyxl.load_workbook(self.excel_filename)
+                sheet = wb.active
+                for row in sheet.iter_rows(min_row=2, values_only=True):
+                    existing_files.add(row[0])
+        except Exception as e:
+            print(f"Error loading data from Excel: {e}")
+            traceback.print_exc()
+        return existing_files
+
+    def load_image_data(self, filename):
+        try:
+            if os.path.exists(self.excel_filename):
+                wb = openpyxl.load_workbook(self.excel_filename)
                 sheet = wb.active
                 for row in sheet.iter_rows(min_row=2, values_only=True):
                     if row[0] == filename:
@@ -221,18 +246,31 @@ class ChequeApp:
         self.save_current_data()
         self.current_index -= 1
         self.update_display()
-        
+
         # Set cheque number entry on auto focus
         self.cheque_number_entry.focus_set()
-        
 
     def show_next(self, event=None):
         self.save_current_data()
         self.current_index += 1
         self.update_display()
-        
+
         # Set cheque number entry on auto focus
         self.cheque_number_entry.focus_set()
+
+    def go_to_index(self, event=None):
+        try:
+            index = int(self.index_entry.get()) - 1
+            if 0 <= index < len(self.images):
+                self.save_current_data()
+                self.current_index = index
+                self.update_display()
+                # Set cheque number entry on auto focus
+                self.cheque_number_entry.focus_set()
+            else:
+                raise ValueError("Index out of range")
+        except ValueError as e:
+            print(f"Invalid index: {e}")
 
 if __name__ == "__main__":
     root = Tk()
