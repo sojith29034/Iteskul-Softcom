@@ -109,10 +109,6 @@ def compare_files():
                 messagebox.showwarning("Warning", "Please enter a valid file name.")
 
 
-
-
-
-
         save_button.config(state=tk.NORMAL)
         save_button.config(command=save_to_excel)
 
