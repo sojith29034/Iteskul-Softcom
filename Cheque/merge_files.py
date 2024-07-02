@@ -56,7 +56,7 @@ def main():
             summary_data.append({"File": os.path.basename(file), "Number of Entries": len(df)})
     else:
         # Get all Excel and CSV files in the selected folder
-        excel_files = [f for f in os.listdir(directory) if f.endswith('.xlsx') or f.endswith('.xlsm') or f.endswith('.csv')]
+        excel_files = [f for f in os.listdir(directory) if f.endswith('.xlsx') or f.endswith('.xlsm') or f.endswith('.CSV')]
 
         if not excel_files:
             print("No Excel or CSV files found.")
@@ -69,6 +69,8 @@ def main():
                 df = pd.read_excel(file_path)
             elif file.endswith('.xlsm'):
                 df = pd.read_excel(file_path, sheet_name='Data')
+            elif file.endswith('.CSV'):
+                df = pd.read_csv(file_path)
             df = df.replace(np.nan, "NA")
             df_list.append(df)
             summary_data.append({"File": file, "Number of Entries": len(df)})
