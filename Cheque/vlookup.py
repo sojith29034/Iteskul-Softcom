@@ -3,7 +3,6 @@ from tkinter import filedialog, messagebox
 import pandas as pd
 from openpyxl import load_workbook
 
-
 def upload_bank_file():
     filepath = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
     if filepath:
@@ -16,14 +15,20 @@ def upload_data_entry_file():
         data_entry_file_entry.delete(0, tk.END)
         data_entry_file_entry.insert(0, filepath)
 
+def upload_vlookup_file():
+    filepath = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
+    if filepath:
+        vlookup_file_entry.delete(0, tk.END)
+        vlookup_file_entry.insert(0, filepath)
+
 def compare_files():
     bank_file = bank_file_entry.get()
     data_entry_file = data_entry_file_entry.get()
+    vlookup_file = vlookup_file_entry.get()
 
     if not bank_file or not data_entry_file:
-        messagebox.showerror("Error", "Please upload both files")
+        messagebox.showerror("Error", "Please upload all files")
         return
-
 
     try:
         bank_df = pd.read_excel(bank_file)
@@ -36,25 +41,23 @@ def compare_files():
         bank_df = pd.read_excel(bank_file, dtype=str)
         data_entry_df = pd.read_excel(data_entry_file, dtype=str)
         
-        
-
         # Clean column names in the bank file
         bank_df.columns = bank_df.columns.str.strip()
 
         # Clean column names in the data entry file
         data_entry_df.columns = data_entry_df.columns.str.strip()
-
+        
         # Ensure necessary columns are present
         required_bank_columns = ['INST NO', 'INST AMOUNT']
         required_data_entry_columns = ['Cheque Number', 'Amount', 'Account Number', 'Name']
         
         for col in required_bank_columns:
             if col not in bank_df.columns:
-                raise KeyError(f"Column '{col}' not found in the bank file.")
+                raise KeyError(f"Column '{col}' not found in the bank master file.")
         
         for col in required_data_entry_columns:
             if col not in data_entry_df.columns:
-                raise KeyError(f"Column '{col}' not found in the data entry file.")
+                raise KeyError(f"Column '{col}' not found in the data entry master file.")
 
         # Concatenate columns
         bank_df['Concat'] = bank_df['INST NO'] + " " + bank_df['INST AMOUNT']
@@ -74,6 +77,19 @@ def compare_files():
 
         result_text.delete(1.0, tk.END)
         result_text.insert(tk.END, merged_df.to_string())
+        
+        if vlookup_file:
+            # Load the existing VLOOKUP file
+            vlookup_df = pd.read_excel(vlookup_file)
+            # vlookup_df = vlookup_df.astype(str)  # Ensure same dtype for comparison
+            
+            # Filter out rows that are already in the VLOOKUP file
+            new_entries = merged_df[~merged_df['Concat'].isin(vlookup_df['Concat'])]
+            
+            # Append the new data to the VLOOKUP dataframe
+            updated_vlookup_df = pd.concat([vlookup_df, new_entries], ignore_index=True).drop_duplicates()
+        else:
+            updated_vlookup_df = merged_df
 
         # To save as excel file
         def save_to_excel():
@@ -82,7 +98,7 @@ def compare_files():
                 try:
                     # Create a Pandas Excel writer using XlsxWriter as the engine
                     writer = pd.ExcelWriter(save_filepath, engine='openpyxl')
-                    merged_df.to_excel(writer, index=False, sheet_name='Sheet1')
+                    updated_vlookup_df.to_excel(writer, index=False, sheet_name='Sheet1')
 
                     # Access the workbook and worksheet objects
                     workbook = writer.book
@@ -119,35 +135,43 @@ def compare_files():
 
 # Create the main window
 root = tk.Tk()
-root.title("Excel Files Comparison Dashboard")
+root.title("VLOOKUP Update Dashboard")
 
-# Bank file upload
-bank_file_label = tk.Label(root, text="Bank File:")
-bank_file_label.grid(row=0, column=0, padx=10, pady=10)
+# Bank master file upload
+bank_master_label = tk.Label(root, text="Bank Master File:")
+bank_master_label.grid(row=0, column=0, padx=10, pady=10)
 bank_file_entry = tk.Entry(root, width=50)
 bank_file_entry.grid(row=0, column=1, padx=10, pady=10)
-bank_file_button = tk.Button(root, text="Browse", command=upload_bank_file)
-bank_file_button.grid(row=0, column=2, padx=10, pady=10)
+bank_master_button = tk.Button(root, text="Browse", command=upload_bank_file)
+bank_master_button.grid(row=0, column=2, padx=10, pady=10)
 
-# Data entry file upload
-data_entry_file_label = tk.Label(root, text="Data Entry File:")
-data_entry_file_label.grid(row=1, column=0, padx=10, pady=10)
+# Data entry master file upload
+data_entry_master_label = tk.Label(root, text="Data Entry Master File:")
+data_entry_master_label.grid(row=1, column=0, padx=10, pady=10)
 data_entry_file_entry = tk.Entry(root, width=50)
 data_entry_file_entry.grid(row=1, column=1, padx=10, pady=10)
-data_entry_file_button = tk.Button(root, text="Browse", command=upload_data_entry_file)
-data_entry_file_button.grid(row=1, column=2, padx=10, pady=10)
+data_entry_master_button = tk.Button(root, text="Browse", command=upload_data_entry_file)
+data_entry_master_button.grid(row=1, column=2, padx=10, pady=10)
+
+# VLOOKUP file upload
+vlookup_file_label = tk.Label(root, text="VLOOKUP File:")
+vlookup_file_label.grid(row=2, column=0, padx=10, pady=10)
+vlookup_file_entry = tk.Entry(root, width=50)
+vlookup_file_entry.grid(row=2, column=1, padx=10, pady=10)
+vlookup_file_button = tk.Button(root, text="Browse", command=upload_vlookup_file)
+vlookup_file_button.grid(row=2, column=2, padx=10, pady=10)
 
 # Compare button
 compare_button = tk.Button(root, text="Compare", command=compare_files)
-compare_button.grid(row=2, column=1, pady=20)
+compare_button.grid(row=3, column=1, pady=20)
 
 # Save button (initially disabled)
 save_button = tk.Button(root, text="Save to Excel", state=tk.DISABLED)
-save_button.grid(row=2, column=2, pady=20)
+save_button.grid(row=3, column=2, pady=20)
 
 # Result display
 result_text = tk.Text(root, wrap=tk.NONE, width=100, height=20)
-result_text.grid(row=3, column=0, columnspan=3, padx=10, pady=10)
+result_text.grid(row=4, column=0, columnspan=3, padx=10, pady=10)
 
 # Start the GUI event loop
 root.mainloop()
