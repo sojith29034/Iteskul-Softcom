@@ -170,6 +170,7 @@ class TeacherDashboard:
             # Add the default Cumulative columns
             ws_teacher.merge_cells(start_row=1, start_column=1, end_row=1, end_column=2)
             ws_teacher.cell(row=1, column=1, value="Cumulative")
+            # ws_teacher.cell(row=2, column=1, value="Month")
             ws_teacher.cell(row=2, column=1, value="Date")
             ws_teacher.cell(row=2, column=2, value="Total")
             
@@ -283,7 +284,7 @@ class TeacherDashboard:
     def calculate_salary(self):
         teacher_name = self.entry_batch_teacher_name.get()
         batch_code = self.combo_salary_batch_code.get()
-        num_hours = int(self.entry_num_hours.get())
+        num_hours = float(self.entry_num_hours.get())
 
         try:
             wb = load_workbook(self.file_name)
@@ -315,8 +316,6 @@ class TeacherDashboard:
             messagebox.showerror("Error", "No matching salary slab found")
             return
             
-        
-
         # Calculate salary
         salary = remuneration * num_hours
 
@@ -330,37 +329,39 @@ class TeacherDashboard:
             messagebox.showerror("Error", "Batch code not found in teacher's sheet")
             return
 
-        # Find or create a row for the current month
-        current_month = datetime.now().strftime('%m-%Y')
+        # Find or create a row for the current date
+        current_date = datetime.now().strftime('%d-%m-%Y')
         empty_row = None
         for row in range(3, ws_teacher.max_row + 1):
             cell_value = ws_teacher.cell(row=row, column=1).value
-            if cell_value and isinstance(cell_value, str) and current_month in cell_value:
+            if cell_value and isinstance(cell_value, str) and current_date in cell_value:
                 empty_row = row
                 break
 
-        # If no row for the current month is found, create a new row
+        # If no row for the current date is found, create a new row
         if empty_row is None:
             empty_row = ws_teacher.max_row + 1
 
-        # Write batch data horizontally
-        ws_teacher.cell(row=empty_row, column=batch_col, value=f"{datetime.now().strftime('%d-%m-%Y')}")
+        # Update batch data
+        existing_salary = ws_teacher.cell(row=empty_row, column=batch_col + 3).value or 0
+        existing_hours = ws_teacher.cell(row=empty_row, column=batch_col + 2).value or 0
+        ws_teacher.cell(row=empty_row, column=batch_col, value=current_date)
         ws_teacher.cell(row=empty_row, column=batch_col + 1, value=f'{batch_data[6]}({remuneration})')
         ws_teacher.cell(row=empty_row, column=batch_col + 2, value=num_hours)
         ws_teacher.cell(row=empty_row, column=batch_col + 3, value=salary)
 
         # Update cumulative salary
         cumulative_col = 1  # Assuming cumulative salary is in the 2nd column
-        cumulative_salary = int(ws_teacher.cell(row=empty_row, column=cumulative_col + 1).value or 0)
-        ws_teacher.cell(row=empty_row, column=cumulative_col, value=f"{datetime.now().strftime('%d-%m-%Y')}")
-        ws_teacher.cell(row=empty_row, column=cumulative_col + 1, value=cumulative_salary + salary)
-        
+        existing_cumulative_salary = int(ws_teacher.cell(row=empty_row, column=cumulative_col + 1).value or 0)
+        ws_teacher.cell(row=empty_row, column=cumulative_col, value=current_date)
+        ws_teacher.cell(row=empty_row, column=cumulative_col + 1, value=existing_cumulative_salary - existing_salary + salary)
         
         # Update the hours in the "Report" sheet
         for row in ws_report.iter_rows(min_row=2, values_only=False):  # min_row=2 to skip header
             if row[0].value ==  batch_code and row[1].value == teacher_name:
                 row[4].value = datetime.now().strftime('%d-%m-%Y')
-                row[5].value -= num_hours
+                existing_remaining_hours = row[5].value or 0
+                row[5].value = existing_remaining_hours - num_hours + existing_hours
 
                 if row[5].value <= 0:
                     for batch_row in ws_batches.iter_rows(min_row=2, values_only=False):
@@ -374,6 +375,7 @@ class TeacherDashboard:
         # Clear input fields after submission
         self.combo_salary_batch_code.delete(0, tk.END)
         self.entry_num_hours.delete(0, tk.END)
+
 
 if __name__ == "__main__":
     root = tk.Tk()
