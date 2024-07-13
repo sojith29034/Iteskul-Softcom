@@ -13,10 +13,15 @@ if 'logged_in' not in st.session_state:
 def authenticate(username, password):
     CORRECT_USERNAME = os.getenv('USERNAME')
     CORRECT_PASSWORD = os.getenv('PASSWORD')
+    
+    # Logging to check if environment variables are loaded correctly
+    st.write(f"Loaded USERNAME from .env: {CORRECT_USERNAME}")
+    st.write(f"Loaded PASSWORD from .env: {CORRECT_PASSWORD}")
+
     return username == CORRECT_USERNAME and password == CORRECT_PASSWORD
 
 # Main function for the login page
-def login():    
+def login():
     # Custom CSS to hide Streamlit elements
     st.markdown("""
         <style>
@@ -55,8 +60,15 @@ def login():
 # Main function to run the app
 def main():
     if st.session_state.logged_in:
-        import index
-        index.run_main_app()
+        st.write("You are logged in!")  # Logging to confirm the login state
+        # Ensure you have an `index.py` with a `run_main_app` function
+        try:
+            import index
+            index.run_main_app()
+        except ModuleNotFoundError:
+            st.error("The index module was not found. Ensure it exists and is correctly named.")
+        except AttributeError:
+            st.error("The index module does not contain a `run_main_app` function.")
     else:
         login()
 
