@@ -43,7 +43,7 @@ def login():
     
     # Title and instructions
     st.title("Login to Your App")
-    st.markdown("<p>Username: qwerty <br> Password: qwerty</p>", unsafe_allow_html=True)
+    st.markdown("<p>Username: sojith <br> Password: sojith</p>", unsafe_allow_html=True)
     
     # Get user input
     username = st.text_input("Username")
