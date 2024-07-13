@@ -60,15 +60,8 @@ def login():
 # Main function to run the app
 def main():
     if st.session_state.logged_in:
-        st.write("You are logged in!")  # Logging to confirm the login state
-        # Ensure you have an `index.py` with a `run_main_app` function
-        try:
-            import index
-            index.run_main_app()
-        except ModuleNotFoundError:
-            st.error("The index module was not found. Ensure it exists and is correctly named.")
-        except AttributeError:
-            st.error("The index module does not contain a `run_main_app` function.")
+        import index
+        index.run_main_app()
     else:
         login()
 
