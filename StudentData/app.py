@@ -15,9 +15,9 @@ def authenticate(username, password):
     CORRECT_PASSWORD = os.getenv('PASSWORD')
     return username == CORRECT_USERNAME and password == CORRECT_PASSWORD
 
-
 # Main function for the login page
 def login():    
+    # Custom CSS to hide Streamlit elements
     st.markdown("""
         <style>
             .reportview-container {margin-top: -2em;}
@@ -25,24 +25,24 @@ def login():
             h1#login-to-your-app, h1#student-atendance-report {text-align: center;}
             header #MainMenu {visibility: hidden; display: none;}
             .stActionButton {visibility: hidden; display: none;}
-            # .stDeployButton {display:none;}
             footer {visibility: hidden;}
-            stDecoration {display:none;}
+            .stDecoration {display:none;}
             .stTabs button {margin-right: 50px;}
             .st-emotion-cache-15ecox0, .viewerBadge_container__r5tak, .styles_viewerBadge__CvC9N {display: none;}
             p.credits {user-select: none; filter: opacity(0);}
         </style>
     """, unsafe_allow_html=True)
 
-    
+    # Credit footer
     st.markdown("<p class='credits'>Made by <a href='https://github.com/sojith29034'>Sojith Sunny</a></p>", unsafe_allow_html=True)
+    
+    # Title and instructions
     st.title("Login to Your App")
     st.markdown("<p>Username: qwerty <br> Password: qwerty</p>", unsafe_allow_html=True)
     
     # Get user input
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
-
 
     # Check if login button is clicked
     if st.button("Login"):
@@ -52,6 +52,7 @@ def login():
         else:
             st.error("Invalid username or password. Please try again.")
 
+# Main function to run the app
 def main():
     if st.session_state.logged_in:
         import index
