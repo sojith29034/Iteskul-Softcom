@@ -36,6 +36,7 @@ def login():
 
     
     st.markdown("<p class='credits'>Made by <a href='https://github.com/sojith29034'>Sojith Sunny</a></p>", unsafe_allow_html=True)
+    st.markdown("<p>Username: 000 <br> Password: 000</p>", unsafe_allow_html=True)
     st.title("Login to Your App")
     
     # Get user input
