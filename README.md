@@ -15,4 +15,4 @@ Select the respective master files and the previous vlookup(except the first tim
 ![Calculate Salary](screenshots/calculate_salary.png)
 
 ## [StudentData/index.py](https://github.com/sojith29034/Iteskul-Softcom/blob/main_branch/StudentData/index.py)
-### [Batch Report @ https://iteskul.streamlit.app/](https://iteskul.streamlit.app/)
+### [Batch Report @ https://iteskul.streamlit.app/](https://iteskul-softcom.streamlit.app/)
