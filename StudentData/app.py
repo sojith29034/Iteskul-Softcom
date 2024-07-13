@@ -1,10 +1,9 @@
 import os
 import streamlit as st
 from dotenv import load_dotenv
-import .env
 
 # Load environment variables from .env file
-load_dotenv(.env)
+load_dotenv()
 
 # Initialize session state for login
 if 'logged_in' not in st.session_state:
