@@ -41,7 +41,8 @@ def run_main_app():
             st.write(url)
             response = requests.get(url)
             if response.status_code == 200:
-                uploaded_files.append((BytesIO(response.content)))
+                df = pd.read_excel(BytesIO(response.content))
+                uploaded_files.append(df)
             else:
                 st.warning(f"Failed to fetch {file} from GitHub.")
     
