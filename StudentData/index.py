@@ -3,10 +3,8 @@ import pandas as pd
 from datetime import datetime
 from io import BytesIO
 from openpyxl import load_workbook
-from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment
 import requests
-
 
 
 def run_main_app():      
@@ -29,7 +27,7 @@ def run_main_app():
     """, unsafe_allow_html=True)
     
     
-    # Function to fetch sample files from GitHub
+    # Function to fetch sample files from GitHub (adjust the URL and filenames as needed)
     def fetch_sample_files():
         base_url = 'https://github.com/sojith29034/Iteskul-Softcom/tree/main_branch/StudentData/'
         files = ['German A1-WD-08.00pm-VP-23052024.xlsx', 'Japanese N3-TR-2.00pm -SS-240923.xlsx', 'Japanese N5-WN-2.00pm -WT-240923.xlsx']
@@ -215,14 +213,10 @@ def run_main_app():
         
         return None
     
-    
-    
-    #############################################################################################################################################
-    #############################################################################################################################################
-    #############################################################################################################################################
+    ###############################################################################################################
+    ###############################################################################################################
+    ###############################################################################################################
             
-    
-    
     # Streamlit app
     st.markdown("<p class='credits'>Made by <a href='https://github.com/sojith29034'>Sojith Sunny</a></p>", unsafe_allow_html=True)
 
@@ -255,17 +249,21 @@ def run_main_app():
             
             # Drop rows where 'Student Name' is empty or NaN
             df = df.dropna(subset=['Student Name'])
+            
             # Drop rows where student has left
-            studentsLeft = students_left(df)
-            df = df[~df['Student Name'].isin(studentsLeft)]
-            for i in range(0, len(studentsLeft)):
-                studentsLeft[i] = studentsLeft[i].split('(')[0]
+            students_left_list = students_left(df)
+            df = df[~df['Student Name'].isin(students_left_list)]
+            
+            # Clean up student names (removing additional details if present)
+            for i in range(len(students_left_list)):
+                students_left_list[i] = students_left_list[i].split('(')[0].strip()
     
             # Drop empty columns
             df = df.dropna(axis=1, how='all')
             
             # Reset the index
             df.reset_index(drop=True, inplace=True)
+            
             # Start index of dataframe from 1
             df.index = df.index + 1
             
@@ -278,7 +276,10 @@ def run_main_app():
     
             # Find Trainer Name
             trainer_name = find_trainer_notes(uploaded_file)
-            trainer_name = trainer_name.split(":")[1]
+            if trainer_name:
+                trainer_name = trainer_name.split(":")[1].strip()
+            else:
+                trainer_name = "Not Found"
             
             # Keep only columns containing "P" and "A"
             df = df.loc[:, ['Student Name'] + [col for col in df.columns[1:] if df[col].isin(['P', 'A', 'p', 'a']).any()]]
@@ -289,26 +290,24 @@ def run_main_app():
             # Find students with 3 or more consecutive absences
             consecutive_absentees = find_consecutive_absentees(df)
             
-            fiveAbsent, tenAbsent = find_absentees(df)
+            # Find students absent for 5 or more days
+            five_absent, ten_absent = find_absentees(df)
             
             # Find students with attendance below 75%
             low_attendance = df[df['Attendance %'] < 75]['Student Name'].tolist()
     
-            
-            
             # Store the results in a dictionary
             class_reports[class_name] = {
                 "Last date": last_date,
                 "Trainer": trainer_name,
                 "Attendance Data": df,
                 "Low Attendance": low_attendance,
-                "Five Absent": fiveAbsent,
-                "Ten Absent": tenAbsent,
+                "Five Absent": five_absent,
+                "Ten Absent": ten_absent,
                 "Consecutive Absentees": consecutive_absentees,
-                "Discontinued": studentsLeft
+                "Discontinued": students_left_list
             }
             
-        
         excel_data = generate_excel(class_reports)
         st.download_button(
             label="Download Attendance Report",
@@ -317,8 +316,6 @@ def run_main_app():
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     
-            
-            
         # Group classes by language
         language_classes = {}
         for class_name, report in class_reports.items():
@@ -326,7 +323,6 @@ def run_main_app():
             if lang not in language_classes:
                 language_classes[lang] = {}
             language_classes[lang][class_name] = report
-            
             
         # Display the results in tabs
         st.markdown("<hr>", unsafe_allow_html=True)
@@ -386,8 +382,6 @@ def run_main_app():
     
                 # Separate language tabs with a horizontal rule
                 st.markdown("<hr>", unsafe_allow_html=True)
-                
-                
                 
         excel_data = generate_excel(class_reports)
         st.download_button(
