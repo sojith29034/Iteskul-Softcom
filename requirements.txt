@@ -4,3 +4,4 @@ pytesseract
 Pillow
 openpyxl
 python-dotenv
+requests
