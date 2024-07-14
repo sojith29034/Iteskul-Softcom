@@ -28,7 +28,22 @@ def run_main_app():
     """, unsafe_allow_html=True)
     
     
-    
+    # Function to fetch sample files from GitHub
+    def fetch_sample_files():
+        base_url = 'https://github.com/sojith29034/Iteskul-Softcom/tree/main_branch/StudentData'
+        files = ['German A1-WD-08.00pm-VP-23052024.xlsx', 'Japanese N3-TR-2.00pm -SS-240923.xlsx', 'Japanese N5-WN-2.00pm -WT-240923.xlsx']
+        uploaded_files = []
+        
+        for file in files:
+            url = base_url + file
+            response = requests.get(url)
+            if response.status_code == 200:
+                uploaded_files.append(BytesIO(response.content))
+            else:
+                st.warning(f"Failed to fetch {file} from GitHub.")
+        
+        return uploaded_files
+        
     
     # Helper function to calculate attendance percentage
     def calculate_attendance(df):
@@ -216,7 +231,10 @@ def run_main_app():
         
     st.title("Student Attendance Report")
     
-    uploaded_files = st.file_uploader("Upload Excel files", type="xlsx", accept_multiple_files=True)
+    if st.checkbox("Use Sample Files"):
+        uploaded_files = fetch_sample_files()
+    else:
+        uploaded_files = st.file_uploader("Upload Excel files", type="xlsx", accept_multiple_files=True)
     
     if uploaded_files:
         class_reports = {}
