@@ -41,8 +41,7 @@ def run_main_app():
             url = base_url + file
             response = requests.get(url)
             if response.status_code == 200:
-                # Append tuple with name and BytesIO content
-                uploaded_files.append((file, BytesIO(response.content)))
+                uploaded_files.append(BytesIO(response.content))
             else:
                 st.warning(f"Failed to fetch {file} from GitHub.")
     
@@ -214,97 +213,189 @@ def run_main_app():
         # Search for "Trainer: " in the sheet
         for row in ws.iter_rows(values_only=True):
             for cell in row:
-                if cell and isinstance(cell, str) and cell.startswith("Trainer: "):
-                    return cell.split("Trainer: ")[-1].strip()
+                if isinstance(cell, str) and "Trainer" in cell:
+                    return cell
         
         return None
     
-    # Function to parse uploaded files
-    def parse_uploaded_files(uploaded_files):
-        reports = {}
-        for name, file_obj in uploaded_files:
-            try:
-                df = pd.read_excel(file_obj)
-                class_name = name.split('.')[0]
-                reports[class_name] = {
-                    "Attendance Data": calculate_attendance(df),
-                    "Low Attendance": students_left(df),
-                    "Consecutive Absentees": find_consecutive_absentees(df),
-                    "Five Absent": find_absentees(df)[0],
-                    "Ten Absent": find_absentees(df)[1],
-                    "Discontinued": find_trainer_notes(file_obj),
-                    "Trainer": "TBA",
-                    "Last date": "24-09-23"
-                }
-            except Exception as e:
-                st.warning(f"Failed to parse {name}: {e}")
+    ###############################################################################################################
+    ###############################################################################################################
+    ###############################################################################################################
+            
+    # Streamlit app
+    st.markdown("<p class='credits'>Made by <a href='https://github.com/sojith29034'>Sojith Sunny</a></p>", unsafe_allow_html=True)
+
+    if st.button("Logout"):
+        st.session_state.logged_in = False
+        st.rerun()
+        
+    st.title("Student Attendance Report")
     
-        return reports
-    
-    # Sidebar
-    st.sidebar.title("File Upload")
-    uploaded_files = st.sidebar.file_uploader("Upload your attendance files (Excel format)", type=["xlsx"], accept_multiple_files=True)
-    
-    # Fetch sample files from GitHub (for demonstration purposes)
-    if st.sidebar.button("Use Sample Files"):
+    if st.checkbox("Use Sample Files"):
         uploaded_files = fetch_sample_files()
+    else:
+        uploaded_files = st.file_uploader("Upload Excel files", type="xlsx", accept_multiple_files=True)
     
-    if not uploaded_files:
-        st.info("Please upload your attendance files or use sample files.")
-        st.stop()
+    if uploaded_files:
+        class_reports = {}
+        for uploaded_file in uploaded_files:
+            class_name = uploaded_file.name.split('.xlsx')[0]  # get class name from the file name
+            st.write(f"Processing {class_name}...")
+                
+            # Read the "Attendance" sheet, skipping initial metadata rows
+            df = pd.read_excel(uploaded_file, sheet_name='Attendance', skiprows=2)
     
-    # Process uploaded files
-    reports = parse_uploaded_files(uploaded_files)
+            # Drop the first column if it is not relevant
+            if df.columns[0].lower().startswith('unnamed'):
+                df.drop(df.columns[0], axis=1, inplace=True)
     
-    # Generate Excel report
-    if st.button("Generate Excel Report"):
-        with st.spinner('Generating Excel report...'):
-            excel_data = generate_excel(reports)
-            st.markdown(get_binary_file_downloader_html(excel_data, 'Excel Report'), unsafe_allow_html=True)
+            # Rename the first column to 'Student Name'
+            df.rename(columns={df.columns[0]: 'Student Name'}, inplace=True)
+            
+            # Drop rows where 'Student Name' is empty or NaN
+            df = df.dropna(subset=['Student Name'])
+            
+            # Drop rows where student has left
+            students_left_list = students_left(df)
+            df = df[~df['Student Name'].isin(students_left_list)]
+            
+            # Clean up student names (removing additional details if present)
+            for i in range(len(students_left_list)):
+                students_left_list[i] = students_left_list[i].split('(')[0].strip()
     
-    # Display the attendance data
-    for class_name, report in reports.items():
-        st.subheader(f"{class_name} Attendance Report")
-        st.dataframe(report["Attendance Data"].style.apply(highlight_rows, condition_list=report["Low Attendance"]), height=600)
+            # Drop empty columns
+            df = df.dropna(axis=1, how='all')
+            
+            # Reset the index
+            df.reset_index(drop=True, inplace=True)
+            
+            # Start index of dataframe from 1
+            df.index = df.index + 1
+            
+            # Change column names to DD/MM/YYYY format if they are timestamps
+            for i in range(3, len(df.columns)):
+                df.columns.values[i] = datetime.strptime(str(df.columns.values[i]), "%Y-%m-%d %H:%M:%S").strftime("%d-%m-%Y")
+                
+            # Get Last Date of attendance being updated
+            last_date = df.columns[-1]
     
-    # Display additional insights
-    st.subheader("Additional Insights")
+            # Find Trainer Name
+            trainer_name = find_trainer_notes(uploaded_file)
+            if trainer_name:
+                trainer_name = trainer_name.split(":")[1].strip()
+            else:
+                trainer_name = "Not Found"
+            
+            # Keep only columns containing "P" and "A"
+            df = df.loc[:, ['Student Name'] + [col for col in df.columns[1:] if df[col].isin(['P', 'A', 'p', 'a']).any()]]
     
-    st.markdown("**Students who left:**")
-    left_students = []
-    for class_name, report in reports.items():
-        left_students.extend(report["Low Attendance"])
-    left_students = list(set(left_students))  # Remove duplicates
-    st.write(left_students if left_students else "No students found.")
+            # Calculate attendance percentage
+            df = calculate_attendance(df)
     
-    st.markdown("**Students with 3 consecutive absences:**")
-    consecutive_absentees = []
-    for class_name, report in reports.items():
-        consecutive_absentees.extend(report["Consecutive Absentees"])
-    consecutive_absentees = list(set(consecutive_absentees))  # Remove duplicates
-    st.write(consecutive_absentees if consecutive_absentees else "No students found.")
+            # Find students with 3 or more consecutive absences
+            consecutive_absentees = find_consecutive_absentees(df)
+            
+            # Find students absent for 5 or more days
+            five_absent, ten_absent = find_absentees(df)
+            
+            # Find students with attendance below 75%
+            low_attendance = df[df['Attendance %'] < 75]['Student Name'].tolist()
     
-    st.markdown("**Students with 5 or more absences:**")
-    five_absentees = []
-    for class_name, report in reports.items():
-        five_absentees.extend(report["Five Absent"])
-    five_absentees = list(set(five_absentees))  # Remove duplicates
-    st.write(five_absentees if five_absentees else "No students found.")
+            # Store the results in a dictionary
+            class_reports[class_name] = {
+                "Last date": last_date,
+                "Trainer": trainer_name,
+                "Attendance Data": df,
+                "Low Attendance": low_attendance,
+                "Five Absent": five_absent,
+                "Ten Absent": ten_absent,
+                "Consecutive Absentees": consecutive_absentees,
+                "Discontinued": students_left_list
+            }
+            
+        excel_data = generate_excel(class_reports)
+        st.download_button(
+            label="Download Attendance Report",
+            data=excel_data,
+            file_name=f"attendance_report_{datetime.now().strftime('%d-%m-%Y')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
     
-    st.markdown("**Students with 10 or more absences:**")
-    ten_absentees = []
-    for class_name, report in reports.items():
-        ten_absentees.extend(report["Ten Absent"])
-    ten_absentees = list(set(ten_absentees))  # Remove duplicates
-    st.write(ten_absentees if ten_absentees else "No students found.")
+        # Group classes by language
+        language_classes = {}
+        for class_name, report in class_reports.items():
+            lang = class_name.split(' ')[0]  # get the first part of the class name as the language
+            if lang not in language_classes:
+                language_classes[lang] = {}
+            language_classes[lang][class_name] = report
+            
+        # Display the results in tabs
+        st.markdown("<hr>", unsafe_allow_html=True)
+        
+        tab_titles = list(language_classes.keys())
+        tabs = st.tabs(tab_titles)
+        
+        # Display each language in its own tab
+        for tab, lang in zip(tabs, language_classes.keys()):
+            with tab:
+                st.subheader(f"{lang} Classes")
+                    
+                # Get the list of class names for the current language
+                class_names = list(language_classes[lang].keys())
+                
+                # Select the first class by default
+                default_class = class_names[0] if class_names else None
+                
+                # Create a dropdown menu to select classes for the current language
+                selected_classes = st.multiselect("Select Classes", class_names, default=default_class)
+                
+                # Iterate over selected classes and display their details
+                for class_name in selected_classes:
+                    report = language_classes[lang][class_name]
+                    
+                    # Separate language tabs with a horizontal rule
+                    st.markdown("<hr>", unsafe_allow_html=True)
+                    
+                    st.subheader(f"Class: {class_name}")
+                    st.write(f"Trainer: {report['Trainer']}")
+                    st.write(f"Last updated on: {report['Last date']}")
+                    st.write("Attendance Data")
+                    st.dataframe(report["Attendance Data"])
     
-    st.markdown("**Trainer's Notes:**")
-    trainer_notes = []
-    for class_name, report in reports.items():
-        if report["Discontinued"]:
-            trainer_notes.append(f"{class_name}: {report['Discontinued']}")
-    st.write(trainer_notes if trainer_notes else "No notes found.")
+                    sub_tab_titles = ["Attendance < 75%", "3 Consecutive Absents", "5 Absents (atleast 10 sessions)", "10 Absents (atleast 25 sessions)","Discontinued"]
+                    sub_tabs = st.tabs(sub_tab_titles)
     
+                    sub_tab_content = {
+                        "Attendance < 75%": report["Low Attendance"],
+                        "3 Consecutive Absents": report["Consecutive Absentees"],
+                        "5 Absents (atleast 10 sessions)": report["Five Absent"],
+                        "10 Absents (atleast 25 sessions)": report["Ten Absent"],
+                        "Discontinued": report["Discontinued"]
+                    }
     
+                    for sub_tab, sub_tab_title in zip(sub_tabs, sub_tab_titles):
+                        with sub_tab:
+                            st.write(sub_tab_title)
+                            details = sub_tab_content.get(sub_tab_title)
+                            if details:
+                                st.markdown("<ul>", unsafe_allow_html=True)
+                                for student in details:
+                                    st.markdown(f"<li>{student}</li>", unsafe_allow_html=True)
+                                st.markdown("</ul>", unsafe_allow_html=True)
+                            else:
+                                st.write(f"No student has {sub_tab_title.lower()}.")
+    
+                # Separate language tabs with a horizontal rule
+                st.markdown("<hr>", unsafe_allow_html=True)
+                
+        excel_data = generate_excel(class_reports)
+        st.download_button(
+            label="Download Cumulative Attendance Report",
+            data=excel_data,
+            file_name=f"attendance_report_{datetime.now().strftime('%d-%m-%Y')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+
 if __name__ == "__main__":
     run_main_app()
