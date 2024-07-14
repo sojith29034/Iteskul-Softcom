@@ -30,7 +30,7 @@ def run_main_app():
     
     # Function to fetch sample files from GitHub
     def fetch_sample_files():
-        base_url = 'https://github.com/sojith29034/Iteskul-Softcom/tree/main_branch/StudentData'
+        base_url = 'https://github.com/sojith29034/Iteskul-Softcom/tree/main_branch/StudentData/'
         files = ['German A1-WD-08.00pm-VP-23052024.xlsx', 'Japanese N3-TR-2.00pm -SS-240923.xlsx', 'Japanese N5-WN-2.00pm -WT-240923.xlsx']
         uploaded_files = []
         
