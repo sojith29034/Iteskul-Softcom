@@ -233,8 +233,8 @@ def run_main_app():
     if st.checkbox("Use Sample Files"):
         uploaded_files = fetch_sample_files()
         if uploaded_files:
-            st.write(f"Found {len(sample_files)} sample files:")
-            for file_url in sample_files:
+            st.write(f"Found {len(uploaded_files)} sample files:")
+            for file_url in uploaded_files:
                 st.write(file_url)
         else:
             st.warning("No sample files found.")
