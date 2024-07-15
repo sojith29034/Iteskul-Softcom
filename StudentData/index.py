@@ -30,10 +30,29 @@ def run_main_app():
     
     # Function to fetch sample files from GitHub (adjust the URL and filenames as needed)
     def fetch_sample_files():
-        # List all XLSX files in the sample files directory
-        sample_files = [f for f in os.listdir() if f.endswith('.xlsx')]
-        st.write(sample_files)
-        return sample_files
+        # GitHub repository URL
+        repo_url = "https://github.com/sojith29034/Iteskul-Softcom/tree/main_branch/StudentData"
+        
+        # Send request to get HTML content of the page
+        response = requests.get(repo_url)
+        
+        # Parse the HTML content to find links to XLSX files
+        if response.status_code == 200:
+            from bs4 import BeautifulSoup
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Find all links ending with .xlsx in the page
+            xlsx_files = []
+            for link in soup.find_all('a'):
+                href = link.get('href')
+                if href and href.endswith('.xlsx'):
+                    xlsx_files.append(href)
+            
+            return xlsx_files
+        else:
+            st.error(f"Failed to fetch sample files from GitHub. Error code: {response.status_code}")
+
         
     
     # Helper function to calculate attendance percentage
@@ -213,6 +232,12 @@ def run_main_app():
     
     if st.checkbox("Use Sample Files"):
         uploaded_files = fetch_sample_files()
+        if uploaded_files:
+            st.write(f"Found {len(sample_files)} sample files:")
+            for file_url in sample_files:
+                st.write(file_url)
+        else:
+            st.warning("No sample files found.")
     else:
         uploaded_files = st.file_uploader("Upload Excel files", type="xlsx", accept_multiple_files=True)
 
