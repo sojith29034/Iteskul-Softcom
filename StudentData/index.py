@@ -30,23 +30,22 @@ def run_main_app():
     # Function to fetch sample files from GitHub (adjust the URL and filenames as needed)
     def fetch_sample_files():
         files = [
-            'https://github.com/sojith29034/Iteskul-Softcom/blob/main_branch/StudentData/German%20A1-WD-08.00pm-RR-23052024.xlsx',
-            'https://github.com/sojith29034/Iteskul-Softcom/blob/main_branch/StudentData/Japanese%20N3-TR-2.00pm%20-SS-240923.xlsx',
-            'https://github.com/sojith29034/Iteskul-Softcom/blob/main_branch/StudentData/Japanese%20N5-WN-2.00pm%20-WT-240923.xlsx'
+            'https://raw.githubusercontent.com/sojith29034/Iteskul-Softcom/main/StudentData/German%20A1-WD-08.00pm-RR-23052024.xlsx',
+            'https://raw.githubusercontent.com/sojith29034/Iteskul-Softcom/main/StudentData/Japanese%20N3-TR-2.00pm%20-SS-240923.xlsx',
+            'https://raw.githubusercontent.com/sojith29034/Iteskul-Softcom/main/StudentData/Japanese%20N5-WN-2.00pm%20-WT-240923.xlsx'
         ]
         uploaded_files = []
     
         for file in files:
-            url = file
-            st.write(url)
-            response = requests.get(url)
+            response = requests.get(file)
             if response.status_code == 200:
                 df = pd.read_excel(BytesIO(response.content), engine='openpyxl')
                 uploaded_files.append(df)
             else:
                 st.warning(f"Failed to fetch {file} from GitHub.")
-    
+        
         return uploaded_files
+
 
         
     
@@ -236,6 +235,9 @@ def run_main_app():
         uploaded_files = fetch_sample_files()
     else:
         uploaded_files = st.file_uploader("Upload Excel files", type="xlsx", accept_multiple_files=True)
+
+    
+    # uploaded_files = st.file_uploader("Upload Excel files", type="xlsx", accept_multiple_files=True)
     
     if uploaded_files:
         class_reports = {}
