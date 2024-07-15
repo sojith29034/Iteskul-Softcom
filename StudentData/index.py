@@ -31,7 +31,7 @@ def run_main_app():
     # Function to fetch sample files from GitHub (adjust the URL and filenames as needed)
     def fetch_sample_files():
         # List all XLSX files in the sample files directory
-        sample_files = [f for f in os.listdir("./") if f.endswith('.xlsx')]
+        sample_files = [f for f in os.listdir() if f.endswith('.xlsx')]
         return sample_files
         
     
