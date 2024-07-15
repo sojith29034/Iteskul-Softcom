@@ -29,27 +29,9 @@ def run_main_app():
     
     # Function to fetch sample files from GitHub (adjust the URL and filenames as needed)
     def fetch_sample_files():
-        files = [
-            'https://github.com/sojith29034/Iteskul-Softcom/raw/main_branch/StudentData/German%20A1-WD-08.00pm-RR-23052024.xlsx',
-            'https://github.com/sojith29034/Iteskul-Softcom/raw/main_branch/StudentData/Japanese%20N3-TR-2.00pm%20-SS-240923.xlsx',
-            'https://github.com/sojith29034/Iteskul-Softcom/raw/main_branch/StudentData/Japanese%20N5-WN-2.00pm%20-WT-240923.xlsx'
-        ]
-        uploaded_files = []
-    
-        for file in files:
-            url = file
-            st.write(url)
-            response = requests.get(url)
-            if response.status_code == 200:
-                df = pd.read_excel(BytesIO(response.content), engine='openpyxl')
-                uploaded_files.append(df)
-            else:
-                st.warning(f"Failed to fetch {file} from GitHub.")
-    
-        return uploaded_files
-
-
-
+        # List all XLSX files in the sample files directory
+        sample_files = [f for f in os.listdir("./") if f.endswith('.xlsx')]
+        return sample_files
         
     
     # Helper function to calculate attendance percentage
