@@ -32,6 +32,7 @@ def run_main_app():
     def fetch_sample_files():
         # List all XLSX files in the sample files directory
         sample_files = [f for f in os.listdir() if f.endswith('.xlsx')]
+        st.write(sample_files)
         return sample_files
         
     
