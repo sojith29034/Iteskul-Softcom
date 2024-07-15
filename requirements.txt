@@ -5,4 +5,4 @@ Pillow
 openpyxl
 python-dotenv
 requests
-bs4
+beautifulsoup4
