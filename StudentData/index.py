@@ -47,12 +47,6 @@ def run_main_app():
                 st.warning(f"Failed to fetch {file} from GitHub.")
     
         return uploaded_files
-    
-    # Use the function to fetch and display the dataframes
-    uploaded_files = fetch_sample_files()
-    for idx, df in enumerate(uploaded_files):
-        st.write(f"DataFrame {idx + 1}")
-        st.dataframe(df)
 
 
 
