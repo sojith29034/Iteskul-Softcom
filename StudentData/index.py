@@ -101,14 +101,7 @@ def run_main_app():
         elif five_absentees:
             return five_absentees, []
         else:
-            return [], []
-        
-    # Highlight function
-    def highlight_rows(row, condition_list):
-        if row['Student Name'] in condition_list:
-            return ['background-color: yellow'] * len(row)
-        return [''] * len(row)
-    
+            return [], []    
     
   
     # Helper function to pad lists to the same length
