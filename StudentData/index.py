@@ -37,14 +37,23 @@ def run_main_app():
         uploaded_files = []
     
         for file in files:
-            response = requests.get(file)
+            url = file
+            st.write(url)
+            response = requests.get(url)
             if response.status_code == 200:
                 df = pd.read_excel(BytesIO(response.content), engine='openpyxl')
                 uploaded_files.append(df)
             else:
                 st.warning(f"Failed to fetch {file} from GitHub.")
-        
+    
         return uploaded_files
+    
+    # Use the function to fetch and display the dataframes
+    uploaded_files = fetch_sample_files()
+    for idx, df in enumerate(uploaded_files):
+        st.write(f"DataFrame {idx + 1}")
+        st.dataframe(df)
+
 
 
         
