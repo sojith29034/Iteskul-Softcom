@@ -1,5 +1,3 @@
-# pip install pillow openpyxl 
-
 from tkinter import Tk, Label, Entry, Button, Frame, filedialog, W, E
 from PIL import Image, ImageTk
 import os
@@ -41,7 +39,6 @@ def save_to_excel(excel_filename, filename, cheque_number, amount, account_numbe
     except Exception as e:
         print(f"Error occurred while saving to Excel: {e}")
         traceback.print_exc()
-
 
 class ChequeApp:
     def __init__(self, root):
@@ -143,7 +140,7 @@ class ChequeApp:
 
         self.folder_name = os.path.basename(folder_path)
         self.excel_filename = f"{self.folder_name}.xlsx"
-        image_files = [file for file in os.listdir(folder_path) if file.lower().endswith('f.tif')]
+        image_files = [file for file in os.listdir(folder_path) if file.lower().endswith(('f.tif', 'f.jpg', 'f.jpeg'))]
 
         images = []
         for file in image_files:
